@@ -1,0 +1,13 @@
+# Ignore Rust build artifacts
+target/
+**/*.rs.bk
+
+# Ignore Next.js UI folder (it runs separately or in its own container)
+cortex-monitor/
+
+# Ignore Python Swarm folder (it builds its own container)
+cortex-swarm/
+
+# Ignore git and environments
+.git/
+.env

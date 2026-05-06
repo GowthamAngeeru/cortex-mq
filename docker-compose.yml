@@ -1,0 +1,38 @@
+services:
+  # 1. The Rust API Gateway & Broker
+  broker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: cortex-broker
+    ports:
+      - "50051:50051"
+    env_file:
+      - .env # Loads your Neon and Upstash credentials
+    restart: unless-stopped
+    networks:
+      - cortex-net
+
+  # 2. The Python AI Swarm (We will spin up 3 of these!)
+  worker:
+    build:
+      context: ./cortex-swarm
+      dockerfile: Dockerfile
+    env_file:
+      - ./cortex-swarm/.env # Loads your OpenAI API keys
+    environment:
+      # CRITICAL: Inside the Docker network, localhost won't work.
+      # We tell Python to route traffic to the "broker" container we defined above.
+      - BROKER_URL=broker:50051
+    depends_on:
+      - broker
+    deploy:
+      replicas: 3 # 🔥 THE FLEX: Automatically creates 3 worker nodes
+    restart: unless-stopped
+    networks:
+      - cortex-net
+
+# Create an isolated virtual network for the cluster to communicate securely
+networks:
+  cortex-net:
+    driver: bridge

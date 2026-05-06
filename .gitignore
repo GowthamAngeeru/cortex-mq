@@ -1,0 +1,21 @@
+# Secrets (CRITICAL)
+*.env
+.env*
+.env
+
+# Rust
+/target
+**/*.rs.bk
+Cargo.lock
+
+# Python
+__pycache__/
+venv/
+.venv/
+env/
+*.pyc
+
+# Next.js / Node
+node_modules/
+.next/
+out/

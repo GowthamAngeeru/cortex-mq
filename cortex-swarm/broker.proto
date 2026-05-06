@@ -1,0 +1,183 @@
+syntax = "proto3";
+package cortex;
+
+enum TaskState{
+    PENDING = 0;
+    ASSIGNED = 1;
+    COMPLETED = 2;
+    FAILED = 3;
+    DLQ = 4;
+}
+
+service BrokerService {
+    rpc SubmitTask(TaskSubmission) returns (TaskAssignment);
+    rpc ClaimTask(ClaimRequest) returns (TaskAssignment);
+    rpc CompleteTask(TaskResult) returns (Acknowledgement);
+    rpc FailTask(TaskFailure) returns (Acknowledgement);
+
+    rpc Heartbeat(HeartbeatPing) returns (HeartbeatPong);
+
+    rpc ListDlqTasks(DlqListRequest) returns (DlqListResponse);
+    rpc ReplayTask(ReplayRequest) returns (TaskAssignment);
+    rpc DiscardDlqTask(DiscardRequest) returns (Acknowledgement);
+
+    rpc GetSystemStatus(StatusRequest) returns (SystemStatus);
+    rpc GetTaskHistory(TaskHistoryRequest) returns (TaskHistoryResponse);
+}
+
+message TaskSubmission{
+    string task_id = 1;
+    string task_type = 2;
+    string payload = 3;
+    int32 priority = 4;
+    string submitted_by = 5;
+    int32 max_retries = 6;
+    int32 lease_seconds=7;
+}
+
+message TaskAssignment{
+    string task_id = 1;
+    string task_type = 2;
+    string payload = 3;
+    TaskState state = 4;
+    string assigned_node = 5;
+    int64 lease_expires_at_unix = 6;
+    int32 attempt_number = 7;
+    int32 max_retries = 8;
+}
+
+message TaskResult{
+    string task_id = 1;
+    string node_id = 2;
+    string result = 3;
+    AgentTrace trace = 4;
+    int64 completed_at_unix = 5;
+    int32 tokens_used = 6;
+    int32 attempt_number = 7;
+}
+
+message TaskFailure{
+    string task_id = 1;
+    string node_id = 2;
+    string error_msg = 3;
+    string error_type = 4;
+    bool is_retryable = 5;
+    int32 attempt_number = 6;
+}
+
+message Acknowledgement{
+    bool success = 1;
+    string message = 2;
+    bool idempotent = 3;
+    string task_id = 4;
+    TaskState new_state = 5; 
+}
+
+message HeartbeatPing{
+    string node_id = 1;
+    string node_version = 2;
+    int32 active_tasks = 3;
+    float cpu_percent = 4;
+    float memory_percent = 5;
+    int64 timestamp_unix = 6;
+    repeated string active_task_ids =7;
+}
+
+message HeartbeatPong{
+    bool acknowledged = 1;
+    string broker_status =2;
+    int32 pending_tasks = 3;
+}
+
+message AgentTrace{
+    string researcher_output = 1;
+    string coder_output = 2;
+    string reviewer_verdict = 3;
+    int32 revision_count = 4;
+    string langsmith_run_url =5;
+    int64 total_duration_ms =6;
+}
+
+message DlqListRequest{
+    int32 page_size = 1;
+    string page_token = 2;
+    string task_type = 3;
+}
+
+message DlqListResponse{
+    repeated DlqEntry entries = 1;
+    string next_page_token = 2;
+    int32 token_count = 3;
+}
+
+message DlqEntry{
+    string task_id = 1;
+    string task_type = 2;
+    string original_payload = 3;
+    string failure_reason = 4;
+    string failure_node = 5;
+    int32 retry_count = 6;
+    int64 enqueued_at_unix = 7;
+    TaskState state = 8;
+}
+
+message ReplayRequest{
+    string task_id      = 1;
+    string replayed_by  = 2;  
+    string reason       = 3;  
+    int32  new_max_retries = 4;
+}
+
+message DiscardRequest {
+    string task_id      = 1;
+    string discarded_by = 2;
+    string reason       = 3;
+}
+
+message StatusRequest {}
+
+message SystemStatus {
+    int32              active_nodes   = 1;
+    int32              pending_tasks  = 2;
+    int32              assigned_tasks = 3;
+    int32              dlq_size       = 4;
+    int64              total_completed = 5;  
+    int64              total_failed    = 6;
+    repeated NodeStatus nodes         = 7;
+}
+
+message NodeStatus {
+    string node_id             = 1;
+    string status              = 2;  
+    int32  active_tasks        = 3;
+    float  cpu_percent         = 4;
+    int64  last_heartbeat_unix = 5;
+    int32  missed_heartbeats   = 6;  
+    int64  tasks_completed     = 7;  
+}
+
+message TaskHistoryRequest {
+    string task_id = 1;
+}
+
+message TaskHistoryResponse {
+    string             task_id  = 1;
+    TaskState          current_state = 2;
+    repeated AuditEvent events  = 3;  
+}
+
+message AuditEvent {
+    string    event_type  = 1;  
+    string    node_id     = 2;
+    TaskState from_state  = 3;
+    TaskState to_state    = 4;
+    string    metadata    = 5;  
+    int64     occurred_at_unix = 6;
+}
+
+message ClaimRequest {
+    string node_id      = 1;
+    string node_version = 2;
+    repeated string supported_task_types = 3;
+    int32  max_concurrent = 4;  
+}

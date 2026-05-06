@@ -1,0 +1,49 @@
+[package]
+name = "cortex-mq"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+# Async Runtime
+tokio = { version = "1", features = ["full"] }
+dotenvy = "0.15"
+
+# gRPC & Protobufs
+tonic = { version = "0.12", features = ["transport"] }
+prost = "0.13"
+
+# Web Framework (health endpoint + task submission UI)
+axum = "0.7"
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# Redis (state snapshots + DLQ)
+deadpool-redis = { version = "0.15", features = ["rt_tokio_1"] }
+redis = { version = "0.25", features = ["tokio-comp", "tokio-rustls-comp"] }
+
+# PostgreSQL (audit log)
+sqlx = { version = "0.8", features = ["postgres", "runtime-tokio-rustls", "chrono", "uuid"] }
+
+
+# Utilities
+uuid = { version = "1", features = ["v4"] }
+chrono = { version = "0.4", features = ["serde"] }
+anyhow = "1"
+thiserror = "1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+rand = "0.10.1"
+
+[build-dependencies]
+tonic-build = "0.12"
+protoc-bin-vendored = "3"
+
+[[bin]]
+name = "cortex-mq"
+path = "src/main.rs"
+
+[lib]
+name = "cortex_mq"
+path = "src/lib.rs"
