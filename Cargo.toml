@@ -8,6 +8,7 @@ edition = "2021"
 tokio = { version = "1", features = ["full"] }
 dotenvy = "0.15"
 
+
 # gRPC & Protobufs
 tonic = { version = "0.12", features = ["transport"] }
 prost = "0.13"
@@ -47,3 +48,22 @@ path = "src/main.rs"
 [lib]
 name = "cortex_mq"
 path = "src/lib.rs"
+
+[dev-dependencies]
+criterion = {version = "0.5", features= ["html_reports"]}
+
+[[bench]]
+name = "hash_ring_bench"
+harness = false
+
+[[example]]
+name = "basic_producer"
+path = "examples/basic_producer.rs"
+
+[[example]]
+name = "cluster_status"
+path = "examples/cluster_status.rs"
+
+[[example]]
+name = "failure_simulation"
+path = "examples/failure_simulation.rs"

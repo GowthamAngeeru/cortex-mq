@@ -45,21 +45,23 @@ Three components communicating exclusively over HTTP/2 gRPC:
 
 ## Performance
 
-Tested on: [your machine — fill in before publishing]  
-Configuration: 10 worker nodes, 150 virtual nodes per node, Redis 7.0
+Hardware: 12th Gen Intel(R) Core(TM) i5-1240P, Windows 11, Redis 7.0
+Configuration: 150 virtual nodes per physical node, FNV-1a hashing
+Benchmark tool: Criterion (100 samples per measurement)
 
-| Metric                                     | Result                         |
-| ------------------------------------------ | ------------------------------ |
-| Task routing latency P50                   | X μs                           |
-| Task routing latency P99                   | X μs                           |
-| Max task throughput                        | X tasks/sec                    |
-| Node failure detection                     | X ms (3 missed × 10s interval) |
-| Task reclamation after failure             | X ms                           |
-| Broker memory at 1,000 active leases       | X MB                           |
-| Hash ring vnode redistribution on node add | O(k/n) keys moved              |
+| Metric                                 | Result                        |
+| -------------------------------------- | ----------------------------- |
+| Task routing P50 — 10-node ring        | 266 ns                        |
+| Task routing P50 — 50-node ring        | 307 ns                        |
+| Route 100 tasks around 1 dead node     | 5.64 μs                       |
+| Node failure detection window          | 30s (3 missed × 10s interval) |
+| Task reclamation after crash           | ~32s                          |
+| Add node to 10-node ring               | 49.7 μs                       |
+| Remove node from 10-node ring          | 17.99 μs                      |
+| Hash ring O complexity on node removal | O(virtual_nodes)              |
 
 ```bash
-cargo bench
+cargo bench   # runs full benchmark suite
 ```
 
 ---
