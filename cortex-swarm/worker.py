@@ -282,6 +282,7 @@ class CortexWorker:
         import time
         import os
         import json
+        import asyncio
         
         start_ms = int(time.time() * 1000)
         logger.info("agent_pipeline_started", extra={
@@ -326,12 +327,20 @@ class CortexWorker:
         except InvalidFinalStateError as e:
             raise RuntimeError(f"LangGraph produced invalid state: {e}") from e
             
-        # ====== 10/10 UPGRADE: Save the AI's final code to a real file! ======
+        # ====== DYNAMIC PAYLOAD PERSISTENCE ======
         final_code = final_state.get("code_output", "")
-        with open("bitcoin_fetcher.py", "w", encoding="utf-8") as f:
+        output_dir = os.getenv("AGENT_OUTPUT_DIR", "./agent_outputs")
+        os.makedirs(output_dir, exist_ok=True)
+        
+        output_path = os.path.join(output_dir, f"{assignment.task_id}.py")
+        with open(output_path, "w", encoding="utf-8") as f:
             f.write(final_code)
-        print("\n💾 AI Payload successfully saved to bitcoin_fetcher.py!\n")
-        # =====================================================================
+            
+        logger.info("agent_output_saved", extra={
+            "task_id": assignment.task_id, 
+            "path": output_path
+        })
+        # =========================================
             
         duration_ms = int(time.time() * 1000) - start_ms
         tokens_used = final_state.get("tokens_used", 0)
@@ -383,7 +392,6 @@ class CortexWorker:
             "task_id": assignment.task_id,
             "duration_ms": duration_ms,
         })
-        
     async def _report_failure(self, task_id: str, attempt_number: int, error_msg: str, error_type: str, is_retryable: bool) -> None:
         if not self.stub:
             logger.error("failure_report_error", extra={"task_id": task_id, "error": "Cannot report failure; stub is None."})

@@ -1,7 +1,7 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use tonic::{Request, Response, Status};
-use tracing::{debug, error, info, warn};
+use tracing::{debug, info, warn};
 
 use crate::core::state::GlobalState;
 
@@ -265,27 +265,45 @@ impl BrokerService for BrokerServiceImpl {
             return Err(Status::invalid_argument("task_id cannot be empty"));
         }
 
-        if req.is_retryable {
-            warn!(
-                task_id = %req.task_id,
-                "api: retryable failure moved to scheduler retry path"
-            );
+        let _ = self.state.force_release_task_lock(&req.task_id).await;
+
+        if req.is_retryable && req.attempt_number < 3 {
+            // Re-queue with exponential backoff metadata
+            // For now: re-route to a healthy node
+            if let Some(node) = self.state.route_task(&req.task_id).await {
+                let retry_payload = serde_json::json!({
+                    "task_id": req.task_id,
+                    "task_type": "retry",   // preserve from original
+                    "payload": "",          // recover from snapshot
+                    "attempt_number": req.attempt_number + 1,
+                    "max_retries": 3,
+                    "lease_seconds": 300
+                });
+                let _ = self
+                    .state
+                    .push_assigned_task(&req.task_id, &node, &retry_payload)
+                    .await;
+
+                warn!(task_id = %req.task_id, attempt = req.attempt_number, "api: task_requeued_for_retry");
+                return Ok(Response::new(Acknowledgement {
+                    success: true,
+                    message: "task requeued for retry".to_string(),
+                    idempotent: false,
+                    task_id: req.task_id,
+                    new_state: TaskState::Pending as i32,
+                }));
+            }
         }
 
+        // Non-retryable or exhausted retries → DLQ
         self.state
             .push_dlq(&req.task_id, &req.task_id)
             .await
             .map_err(internal)?;
 
-        let _ = self.state.force_release_task_lock(&req.task_id).await;
         let _ = self.state.delete_task_snapshot(&req.task_id).await;
 
-        warn!(
-            task_id = %req.task_id,
-            node_id = %req.node_id,
-            error_type = %req.error_type,
-            "api: task_failed_to_dlq"
-        );
+        warn!(task_id = %req.task_id, node_id = %req.node_id, "api: task_failed_to_dlq");
 
         Ok(Response::new(Acknowledgement {
             success: true,
@@ -316,12 +334,14 @@ impl BrokerService for BrokerServiceImpl {
             })
             .collect::<Vec<_>>();
 
+        let total_completed: u64 = pb_nodes.iter().map(|n| n.tasks_completed as u64).sum();
+
         Ok(Response::new(SystemStatus {
             active_nodes: pb_nodes.len() as i32,
-            pending_tasks: 0,
-            assigned_tasks: 0,
+            pending_tasks: 0, // requires queue inspection — add to state layer
+            assigned_tasks: pb_nodes.iter().map(|n| n.active_tasks).sum(),
             dlq_size: dlq_size as i32,
-            total_completed: 0,
+            total_completed: total_completed as i64,
             total_failed: dlq_size as i64,
             nodes: pb_nodes,
         }))

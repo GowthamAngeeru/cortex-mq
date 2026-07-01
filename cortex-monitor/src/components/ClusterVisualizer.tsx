@@ -2,6 +2,7 @@ import React from "react";
 
 export default function ClusterVisualizer({ activeNodes = 0 }) {
 	const workers = Array.from({ length: activeNodes });
+	const radius = 180; // Radial distance from broker center
 
 	return (
 		<div className="w-full flex flex-col items-center justify-center py-12 bg-white rounded-xl border border-gray-100 shadow-sm">
@@ -15,6 +16,7 @@ export default function ClusterVisualizer({ activeNodes = 0 }) {
 			</div>
 
 			<div className="relative flex items-center justify-center w-full max-w-4xl h-64">
+				{/* Central Broker Node */}
 				<div className="absolute z-10 flex flex-col items-center">
 					<div className="w-20 h-20 bg-blue-600 rounded-full flex items-center justify-center shadow-lg shadow-blue-500/30 animate-pulse">
 						<svg
@@ -36,13 +38,43 @@ export default function ClusterVisualizer({ activeNodes = 0 }) {
 					</span>
 				</div>
 
+				{/* Unified Absolute SVG Overlay for Connection Lines */}
+				{workers.length > 0 && (
+					<svg
+						className="absolute inset-0 w-full h-full pointer-events-none"
+						style={{ overflow: "visible" }}
+					>
+						{workers.map((_, index) => {
+							const angle = (Math.PI / (workers.length + 1)) * (index + 1);
+							const x = Math.cos(angle) * radius;
+							const y = Math.sin(angle) * radius - 40;
+
+							return (
+								<line
+									key={index}
+									x1="50%"
+									y1="50%"
+									// Use style properties for cross-browser calc usage within SVG geometry
+									style={{
+										x2: `calc(50% + ${x}px)`,
+										y2: `calc(50% + ${y}px)`,
+									}}
+									stroke="#10B981"
+									strokeWidth="2"
+									strokeDasharray="4 4"
+									className="opacity-40 transition-all duration-700 ease-in-out"
+								/>
+							);
+						})}
+					</svg>
+				)}
+
+				{/* Worker Nodes Nodes Layer */}
 				{workers.length > 0 ? (
 					workers.map((_, index) => {
-						// Calculate a perfect semi-circle spread for the nodes
 						const angle = (Math.PI / (workers.length + 1)) * (index + 1);
-						const radius = 180; // Distance from broker
 						const x = Math.cos(angle) * radius;
-						const y = Math.sin(angle) * radius - 40; // Offset Y slightly
+						const y = Math.sin(angle) * radius - 40;
 
 						return (
 							<div
@@ -68,22 +100,6 @@ export default function ClusterVisualizer({ activeNodes = 0 }) {
 								<span className="mt-2 text-xs font-semibold text-gray-500">
 									Worker-{index + 1}
 								</span>
-
-								<svg
-									className="absolute -z-10 w-full h-full pointer-events-none"
-									style={{ top: "50%", left: "50%", overflow: "visible" }}
-								>
-									<line
-										x1="0"
-										y1="0"
-										x2={-x}
-										y2={-y}
-										stroke="#10B981"
-										strokeWidth="2"
-										strokeDasharray="4 4"
-										className="opacity-40"
-									/>
-								</svg>
 							</div>
 						);
 					})

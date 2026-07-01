@@ -199,12 +199,7 @@ impl HashRing {
         );
     }
 
-    pub fn update_node_info(
-        &mut self,
-        node_id: &str,
-        active_tasks: u32,
-        cpu_percent: f32,
-    ) {
+    pub fn update_node_info(&mut self, node_id: &str, active_tasks: u32, cpu_percent: f32) {
         match self.nodes.get_mut(node_id) {
             None => {
                 tracing::warn!(
@@ -247,10 +242,7 @@ impl HashRing {
         }
     }
 
-    pub fn record_missed_heartbeat(
-        &mut self,
-        node_id: &str,
-    ) -> Option<u32> {
+    pub fn record_missed_heartbeat(&mut self, node_id: &str) -> Option<u32> {
         match self.nodes.get_mut(node_id) {
             None => {
                 tracing::warn!(
@@ -261,15 +253,13 @@ impl HashRing {
             }
 
             Some(info) => {
-                info.missed_heartbeats =
-                    info.missed_heartbeats.saturating_add(1);
+                info.missed_heartbeats = info.missed_heartbeats.saturating_add(1);
 
-                info.status =
-                    if info.missed_heartbeats >= MISSED_HEARTBEAT_LIMIT {
-                        NodeStatus::Dead
-                    } else {
-                        NodeStatus::Suspect
-                    };
+                info.status = if info.missed_heartbeats >= MISSED_HEARTBEAT_LIMIT {
+                    NodeStatus::Dead
+                } else {
+                    NodeStatus::Suspect
+                };
 
                 tracing::warn!(
                     node_id = %node_id,
@@ -354,10 +344,7 @@ impl HashRing {
                     rejected.insert(node);
                 }
 
-                Some(info)
-                    if !info.has_capacity()
-                        || info.cpu_percent >= CPU_SOFT_LIMIT =>
-                {
+                Some(info) if !info.has_capacity() || info.cpu_percent >= CPU_SOFT_LIMIT => {
                     rejected.insert(node);
                 }
 
@@ -397,8 +384,7 @@ impl HashRing {
 
     pub fn record_task_completed(&mut self, node_id: &str) {
         if let Some(info) = self.nodes.get_mut(node_id) {
-            info.total_completed =
-                info.total_completed.saturating_add(1);
+            info.total_completed = info.total_completed.saturating_add(1);
 
             info.active_tasks = info.active_tasks.saturating_sub(1);
         }
@@ -406,10 +392,7 @@ impl HashRing {
 
     #[must_use]
     pub fn active_nodes(&self) -> Vec<&NodeInfo> {
-        self.nodes
-            .values()
-            .filter(|node| node.is_alive())
-            .collect()
+        self.nodes.values().filter(|node| node.is_alive()).collect()
     }
 
     #[must_use]
@@ -455,7 +438,7 @@ mod tests {
         let mut ring = make_ring();
 
         let first = ring.get_node("task-1").unwrap().to_string();
-        ring.mark_dead(&first);
+        let _ = ring.mark_dead(&first);
 
         let second = ring.get_node("task-1").unwrap();
         assert_ne!(first, second);
